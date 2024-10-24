@@ -29,7 +29,7 @@ from llama_index.postprocessor.openvino_rerank import OpenVINORerank
 from llama_index.vector_stores.faiss import FaissVectorStore
 from optimum.intel import OVModelForSpeechSeq2Seq
 from transformers import AutoProcessor, TextIteratorStreamer
-from transformers import SpeechT5Processor, SpeechT5ForTextToSpeech, SpeechT5HifiGan
+from transformers import SpeechT5Processor, SpeechT5ForTextToSpeech, SpeechT5HifiGan, MCTCTForCTC, MCTCTProcessor
 
 # Global variables initialization
 TARGET_AUDIO_SAMPLE_RATE = 16000
@@ -197,8 +197,8 @@ def load_tts_model(model_dir: Path, vocoder_model_dir: Path) -> None:
 
     nltk.download('punkt_tab', quiet=True)
 
-    tts_processor = SpeechT5Processor.from_pretrained(model_dir)
-    tts_model = SpeechT5ForTextToSpeech.from_pretrained(model_dir)
+    tts_processor = MCTCTProcessor.from_pretrained("speechbrain/m-ctc-t-large", token="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")
+    tts_model = MCTCTForCTC.from_pretrained("speechbrain/m-ctc-t-large", token="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")
     tts_vocoder = SpeechT5HifiGan.from_pretrained(vocoder_model_dir)
     speaker_embeddings = load_speaker_embeddings(SPEAKER_INDEX)
 
@@ -495,5 +495,7 @@ if __name__ == "__main__":
     parser.add_argument("--public", default=False, action="store_true", help="Whether interface should be available publicly")
 
     args = parser.parse_args()
-    run(Path(args.asr_model), Path(args.chat_model), args.tts_model, args.vocoder_model, Path(args.embedding_model), Path(args.reranker_model), Path(args.personality), args.public)
+    # run(Path(args.asr_model), Path(args.chat_model), args.tts_model, args.vocoder_model, Path(args.embedding_model), Path(args.reranker_model), Path(args.personality), args.public)
+
+    load_tts_model("model_dir: Path", args.vocoder_model)
     
