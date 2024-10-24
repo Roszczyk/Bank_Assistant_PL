@@ -26,10 +26,9 @@ instructions: |
 
   Instrukcje użytkowania:  
   
-  1. Załącz plik PDF lub TXT z dodatkowym kontekstem (np. dokumenty bankowe lub inne informacje finansowe - opcjonalnie; patrz \"Przykład Raportów Bankowych.pdf\" jako przykład) 
-  2. Nagraj swoje pytanie/komentarz przy użyciu pierwszego widgetu audio (\"Twój głosowy input\") lub wpisz je w pole tekstowe (\"Twój tekstowy input\"), a następnie kliknij Wyślij  
+  1. Załącz plik PDF lub TXT z dodatkowym kontekstem (np. dokumenty bankowe lub inne informacje finansowe - opcjonalnie) 
+  2. Nagraj swoje pytanie/komentarz przy użyciu pierwszego widgetu audio (\"Wejście głosowe\") lub wpisz je w pole tekstowe (\"Wejście tekstowe\"), a następnie kliknij Zatwierdź  
   3. Poczekaj na odpowiedź chatbota (\"Chatbot\")  
-  4. Porozmawiaj z chatbotem na temat swoich potrzeb finansowych  
-  5. Kliknij przycisk \"Podsumuj\", aby wygenerować podsumowanie  
+  4. Porozmawiaj z chatbotem na temat swoich potrzeb finansowych i pytań o obsługę
 
   **Uwaga: Aplikacja chatbotowa nie jest przeznaczona do udzielania porad finansowych. Jest używana wyłącznie w celach demonstracyjnych.**
