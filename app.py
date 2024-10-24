@@ -35,7 +35,7 @@ from transformers import SpeechT5Processor, SpeechT5ForTextToSpeech, SpeechT5Hif
 TARGET_AUDIO_SAMPLE_RATE = 16000
 SPEAKER_INDEX = 7306
 
-EXAMPLE_PDF_PATH = os.path.join(os.path.dirname(__file__), "Grand_Azure_Resort_Spa_Full_Guide.pdf")
+PDFS_DIR = Path("pdfs")
 MODEL_DIR = Path("model")
 inference_lock = threading.Lock()
 
@@ -219,26 +219,26 @@ def load_file(file_path: Path) -> Document:
     Returns:
         A document in LLama Index format
     """
-    ext = file_path.suffix
+    ext = file_path.suffix.lower()  # Ensure extension is lowercase for comparison
     if ext == ".pdf":
         # Using PyMuPDF (fitz) to read PDF content
         text = ""
         with fitz.open(file_path) as pdf:
             for page in pdf:
                 text += page.get_text("text") + "\n"  # Extract text from each page
-            return Document(text=text, metadata={"file_name": file_path.name})
-    
+        return Document(text=text, metadata={"file_name": file_path.name})
+
     elif ext == ".txt":
         # Reading text files as usual
-        with open(file_path) as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
-            return Document(text=content, metadata={"file_name": file_path.name})
-    
+        return Document(text=content, metadata={"file_name": file_path.name})
+
     else:
-        raise ValueError(f"{ext} file is not supported for now")
+        raise ValueError(f"{ext} files are not supported for now.")
 
 
-def load_context(file_path: str) -> None:
+def load_context(file_paths: list) -> None:
     """
     Load context (document) and create a RAG pipeline
 
@@ -247,15 +247,28 @@ def load_context(file_path: str) -> None:
     """
     global ov_chat_engine
 
-    # limit chat history to 3000 tokens
     memory = ChatMemoryBuffer.from_defaults()
 
-    # when context removed, no longer RAG pipeline is needed
-    if not file_path:
-        ov_chat_engine = SimpleChatEngine.from_defaults(llm=ov_llm, system_prompt=chatbot_config["system_configuration"], memory=memory)
+    if not file_paths:
+        log.warning("No file paths provided")
         return
 
-    document = load_file(Path(file_path))
+    documents = []
+    for file_path in file_paths:  # Iteracja przez każdy plik
+        folder_path = Path(file_path)  # Upewnij się, że to jest prawidłowa ścieżka
+
+        log.info(f"Loading documents from {folder_path}")
+
+        if folder_path.is_file():  # Sprawdzenie, czy to plik
+            log.info(f"Loading file: {folder_path}")
+            document = load_file(folder_path)
+            documents.append(document)
+        else:
+            log.warning(f"{folder_path} is not a valid file.")
+
+    if not documents:
+        log.warning("No valid documents found.")
+        return
 
     # a splitter to divide document into chunks
     splitter = LangchainNodeParser(RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=100))
@@ -268,7 +281,7 @@ def load_context(file_path: str) -> None:
 
     # set embedding model
     Settings.embed_model = ov_embedding
-    index = VectorStoreIndex.from_documents([document], storage_context, transformations=[splitter])
+    index = VectorStoreIndex.from_documents(documents, storage_context, transformations=[splitter])
     # create a RAG pipeline
     ov_chat_engine = index.as_chat_engine(llm=ov_llm, chat_mode=ChatMode.CONTEXT, system_prompt=chatbot_config["system_configuration"],
                                           memory=memory, node_postprocessors=[ov_reranker])
@@ -295,7 +308,7 @@ def chat(history: List[List[str]]) -> List[List[str]]:
     """
     # no document is loaded
     if isinstance(ov_chat_engine, SimpleChatEngine):
-        history[-1][1] = "No guide is provided, so I cannot answer this question. Please upload the hotel guide."
+        history[-1][1] = "Brak kontekstu, wgraj pliki."
         yield history
         return
 
@@ -405,18 +418,18 @@ def create_UI(initial_message: str) -> gr.Blocks:
     Returns:
         Demo UI
     """
-    with gr.Blocks(title="Adrishuo - the Conversational AI Chatbot") as demo:
+    with gr.Blocks(title="Asystent bankowy AI") as demo:
         gr.Markdown(chatbot_config["instructions"])
         with gr.Row():
             with gr.Column(scale=1):
-                file_uploader_ui = gr.File(label="Hotel guide", file_types=[".pdf", ".txt"], value=EXAMPLE_PDF_PATH)
-                input_audio_ui = gr.Audio(sources=["microphone"], label="Your voice input")
-                input_text_ui = gr.Textbox(label="Your text input")
-                submit_btn = gr.Button("Submit", variant="primary", interactive=False)
+                file_uploader_ui = gr.Files(label="Asystent bankowy", file_types=[".pdf", ".txt"])
+                input_audio_ui = gr.Audio(sources=["microphone"], label="Wejście głosowe")
+                input_text_ui = gr.Textbox(label="Wejście tekstowe")
+                submit_btn = gr.Button("Zatwierdź", variant="primary", interactive=False)
             with gr.Column(scale=2):
                 chatbot_ui = gr.Chatbot(value=[[None, initial_message]], label="Chatbot")
-                output_audio_ui = gr.Audio(label="Chatbot voice response", autoplay=True)
-                clear_btn = gr.Button("Start over", variant="secondary")
+                output_audio_ui = gr.Audio(label="Odpowiedź głosowa", autoplay=True)
+                clear_btn = gr.Button("Wyczyść chat", variant="secondary")
 
         # events
         # block submit button when no audio or text input
@@ -474,9 +487,6 @@ def run(asr_model_dir: Path, chat_model_dir: Path, tts_model_dir: Path, vocoder_
     # get initial greeting
     initial_message = generate_initial_greeting()
 
-    # load initial context
-    load_context(EXAMPLE_PDF_PATH)
-
     # create user interface
     demo = create_UI(initial_message)
     # launch demo
@@ -491,7 +501,7 @@ if __name__ == "__main__":
     parser.add_argument("--vocoder_model", type=str, default="microsoft/speecht5_hifigan", help="Path to the vocoder model directory for tts")
     parser.add_argument("--embedding_model", type=str, default="model/bge-small-FP32", help="Path to the embedding model directory")
     parser.add_argument("--reranker_model", type=str, default="model/bge-reranker-large-FP32", help="Path to the reranker model directory")
-    parser.add_argument("--personality", type=str, default="concierge_personality.yaml", help="Path to the YAML file with chatbot personality")
+    parser.add_argument("--personality", type=str, default="bankbot_personality.yaml", help="Path to the YAML file with chatbot personality")
     parser.add_argument("--public", default=False, action="store_true", help="Whether interface should be available publicly")
 
     args = parser.parse_args()
